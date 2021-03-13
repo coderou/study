@@ -1,0 +1,238 @@
+项目重写
+1.清空src下除了assets/router/store/main.js外所有文件/文件夹
+2.安装依赖
+  {
+    vue add elementui     //UI库
+    yarn add axios        //ajax请求
+    yarn add mockjs       //mock.js模拟后台数据
+    yarn add swiper@5.3.8 //轮播图
+    yarn add nprogress    //滚动进度条
+
+  }
+3.配置EsLint规则,格式化软件,全局根路径别名
+  #package.json
+  {
+    "eslintConfig":{
+      ...
+      "rules": {
+        "import/extensions": 0,// 文件扩展名
+        "import/no-unresolved": 0, // 未知
+        "quotes": 0, // 单引号
+        "no-console": 0, // console.log
+        "implicit-arrow-linebreak": 0, // 箭头函数小括号
+        "no-shadow": 0 // 未知
+      }
+    }
+  }
+  #.prettierrc
+  {
+    {
+      "printWidth": 80, // 单行长度
+      "tabWidth": 2, // tab宽度(空格)
+      "singleQuote": true, // 字符串单引号
+      "semi": true, // 自动添加分号
+      "arrowParens": "always", // 箭头函数()包裹
+      "trailingComma": "all" // 对象解构最后一项添加逗号
+    }
+  }
+  #jsconfig.json
+  {
+    {
+      "compilerOptions": {
+        "baseUrl": "./",
+        "paths": {
+          "@/*": ["src/*"]
+        }
+      },
+      "exclude": ["node_modules", "dist"]
+    }
+  }
+4.配置跨域
+  #vue.config.js
+  {
+    module.exports = {
+      lintOnSave: false,
+      devServer: {
+        proxy: {
+          '/api': {
+            target: 'http://39.98.123.211',
+            changeOrigin: true,
+          },
+        },
+      },
+    };
+  }
+3.配置api,请求拦截器,响应拦截器
+  #src/api/request.js
+  {
+    import axios from "axios";
+    import NProgress from "nprogress";
+    import "nprogress/nprogress.css";
+    // 错误信息对象
+    const errorMessages = {
+      401: "未授权",
+      403: "进制访问",
+      404: "资源找不到,请检查地址",
+      500: "服务器错误",
+    };
+    // 1.创建axios请求实例
+    const request = axios.create({
+      baseURL: "/api",
+      timeout: 100000,
+    });
+    // 2.使用axios请求拦截器
+    request.interceptors.request.use((config) => {
+      NProgress.start(); // 进度条开始
+      return config;
+    });
+    // 3.使用axios响应拦截器
+    request.interceptors.response.use(
+      // 响应成功
+      (response) => {
+        NProgress.done(); // 进度条结束
+
+        if (response.data.code === 200) {
+          return response.data.data;
+        }
+        return Promise.reject(response.data.message || "未知错误");
+      },
+      // 响应失败
+      (error) => {
+        NProgress.done(); // 进度条结束
+
+        if (error.response) {
+          return Promise.reject(errorMessages[error.response.status]);
+        }
+        if (error.message.indexOf("Network Error") !== -1) {
+          return Promise.reject(new Error("网络连接失败.请链接网络或打开wifi重试"));
+        }
+        if (error.message.indexOf("timeout") !== -1) {
+          return Promise.reject(new Error("网速太慢了,请链接wifi重试"));
+        }
+        return Promise.reject(new Error("未知错误,请联系管理员解决"));
+      },
+    );
+    export default request;
+  }
+  #src/api/mockRequest.js
+  tip:其他同上,只需要改baseURL:'/mock'
+  {
+    const request = axios.create({
+      baseURL: '/mock',
+      timeout: 100000,
+    });
+  }
+  #src/api/index.js
+  {
+    import request from './request.js'
+    import mockRequest from "./mockRequest.js";
+  }
+4.配置mock数据
+  #src/mock/index.js
+  {
+    import Mock from 'mockjs';
+    import banners from './banners.json';
+    import floors from './floors.json';
+
+    Mock.mock('/mock/banners', {
+      code: 200,
+      data: banners,
+    });
+
+    Mock.mock('/mock/floors', 'get', {
+      code: 200,
+      data: floors,
+    });
+  }
+  #src/mock/banner.json
+  {
+    ...
+  }
+  #src/mock/floors.json
+  {
+    ...
+  }
+5.配置静态资源,mock
+  #public/images/...
+  #src/assets/css/reset.css
+  #src/assets/font/...
+  #src/assets/images/...
+  #src/main.js
+  {
+    import '@/assets/css/reset.css';
+    import '@/assets/font/iconfont.css';
+    import './plugins/element.js';
+
+    /* eslint-disable */
+    if (process.env.NODE_ENV === 'development') {
+      require('./mock'); //要写NODE_ENV,要用commonjs规范
+    }
+    /* eslint-enable */
+  }
+6.配置vuex模块化
+  #sec/store/modules/index.js
+  {
+    export default {
+
+    };
+  }
+  #src/store/index.js
+  {
+    import Vue from 'vue';
+    import Vuex from 'vuex';
+    import modules from './modules/index.js'
+    
+    Vue.use(Vuex);
+    
+    export default new Vuex.Store({
+      modules,
+    });
+  }
+7.配置路由
+  #src/router/index.js
+  {
+    import Vue from 'vue';
+    import VueRouter from 'vue-router';
+    import routes from './routes.js';
+
+    Vue.use(VueRouter);
+
+    const router = new VueRouter({
+      mode: 'history',
+      base: process.env.BASE_URL,
+      routes,
+    });
+
+    export default router;
+  }
+  #src/router/routes.js
+  {
+    export default [
+      {
+        path: '/',
+        name: 'Home',
+      },
+    ];
+  }
+8.更新App.vue组件
+  #src/App.vue
+  {
+    <template>
+      <div>App</div>
+    </template>
+
+    <script type="text/ecmascript-6">
+    export default {
+      name: 'App',
+    };
+    </script>
+
+    <style lang='less' scoped>
+    </style>
+  }
+9.git 操作
+  #.gitignore
+  {
+    ANOTES
+  }
+  
